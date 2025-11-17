@@ -17,7 +17,8 @@ app.use(
 app.use(express.json());
 
 // =============== MEMORY SYSTEM ===============
-const memoryFile = path.resolve("memory.json");
+// IMPORTANT: Use /tmp for Render (writeable)
+const memoryFile = "/tmp/memory.json";
 
 function loadMemory() {
   if (!fs.existsSync(memoryFile)) {
@@ -38,10 +39,8 @@ app.post("/chat", async (req, res) => {
   try {
     const { message, username, userClass } = req.body;
 
-    // Load memory
     const memory = loadMemory();
 
-    // Create memory entry if user is new
     if (!memory.users[username]) {
       memory.users[username] = {
         class: userClass,
@@ -50,7 +49,6 @@ app.post("/chat", async (req, res) => {
       };
     }
 
-    // Save chat history
     memory.users[username].history.push({
       time: Date.now(),
       text: message
@@ -61,11 +59,11 @@ app.post("/chat", async (req, res) => {
     const userData = memory.users[username];
 
     const systemPrompt = `
-You are QuizMate AI created by Karunya.  
+You are QuizMate AI created by Karunya.
 Use the user's profile when answering.
 
-User Name: ${username}  
-Class: ${userData.class}  
+User Name: ${username}
+Class: ${userData.class}
 Previous messages (last 5): ${userData.history.slice(-5).map(h => h.text).join("\n")}
 
 Only help with:
@@ -124,7 +122,7 @@ app.post("/quiz", async (req, res) => {
             content:
               `Generate EXACTLY this format:
 
-1) Question text?
+1) Question?
 A) Option 1
 B) Option 2
 C) Option 3
