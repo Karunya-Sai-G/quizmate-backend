@@ -26,7 +26,7 @@ app.post("/chat", async (req, res) => {
       {
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: "You are QuizMate AI created by Karunya." },
+          { role: "system", content: "You are QuizMate AI created by Karunya. You only help with quiz generation based on a topic, and explaining topics to users and noting else." },
           { role: "user", content: userMessage },
         ],
       },
@@ -83,3 +83,4 @@ app.post("/quiz", async (req, res) => {
 });
 
 app.listen(5000, () => console.log("✅ Backend running on port 5000"));
+
