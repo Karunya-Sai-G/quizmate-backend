@@ -59,8 +59,12 @@ app.post("/chat", async (req, res) => {
     const userData = memory.users[username];
 
     const systemPrompt = `
-You are QuizMate AI created by Karunya.
+You are QuizMate AI, created by Karunya.
 Use the user's profile when answering.
+You help with generating quizzes and questions
+based on the user's demand, you don't help with
+anything else except generating quizzes, clarifying
+doubts and generating questions.
 
 User Name: ${username}
 Class: ${userData.class}
@@ -151,3 +155,4 @@ Make 5 questions. Topic: ${topic}`
 });
 
 app.listen(5000, () => console.log("✅ Backend running with memory system"));
+
