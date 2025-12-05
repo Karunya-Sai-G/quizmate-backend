@@ -17,7 +17,7 @@ app.use(
 app.use(express.json());
 
 // =============== MEMORY SYSTEM ===============
-// IMPORTANT: Use /tmp for Render (writeable)
+// Render allows writing only to /tmp
 const memoryFile = "/tmp/memory.json";
 
 function loadMemory() {
@@ -41,6 +41,7 @@ app.post("/chat", async (req, res) => {
 
     const memory = loadMemory();
 
+    // Create a user profile if missing
     if (!memory.users[username]) {
       memory.users[username] = {
         class: userClass,
@@ -49,34 +50,39 @@ app.post("/chat", async (req, res) => {
       };
     }
 
-    memory.users[username].history.push({
-      time: Date.now(),
-      text: message
+    const userData = memory.users[username];
+
+    // Save USER message
+    userData.history.push({
+      sender: "user",
+      text: message,
+      time: Date.now()
     });
 
     saveMemory(memory);
 
-    const userData = memory.users[username];
-
+    // Build system prompt with memory of last 10 messages
     const systemPrompt = `
 You are QuizMate AI, created by Karunya.
-Use the user's profile when answering.
-You help with generating quizzes and questions
-based on the user's demand, you don't help with
-anything else except generating quizzes, clarifying
-doubts and generating questions.
+Your ONLY tasks:
+- Help with quizzes
+- Generate questions
+- Explain concepts
+- Clarify doubts for school subjects
+
+DO NOT answer unrelated topics.
 
 User Name: ${username}
 Class: ${userData.class}
-Previous messages (last 5): ${userData.history.slice(-5).map(h => h.text).join("\n")}
 
-Only help with:
-- Explaining topics
-- Teaching concepts
-- Assisting with quizzes
-Do NOT answer unrelated topics.
+Conversation History (last 10 messages):
+${userData.history
+      .slice(-10)
+      .map(h => `${h.sender.toUpperCase()}: ${h.text}`)
+      .join("\n")}
 `;
 
+    // Call Groq API
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
       {
@@ -84,17 +90,29 @@ Do NOT answer unrelated topics.
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message }
-        ],
+        ]
       },
       {
         headers: {
           Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+          "Content-Type": "application/json"
+        }
       }
     );
 
-    res.json({ reply: response.data.choices[0].message.content });
+    const aiReply = response.data.choices[0].message.content;
+
+    // Save AI message
+    userData.history.push({
+      sender: "ai",
+      text: aiReply,
+      time: Date.now()
+    });
+
+    saveMemory(memory);
+
+    res.json({ reply: aiReply });
+
   } catch (err) {
     console.error(err.response?.data || err.message);
     res.status(500).json({
@@ -123,8 +141,7 @@ app.post("/quiz", async (req, res) => {
         messages: [
           {
             role: "system",
-            content:
-              `Generate EXACTLY this format:
+            content: `Generate EXACTLY this format:
 
 1) Question?
 A) Option 1
@@ -133,26 +150,31 @@ C) Option 3
 D) Option 4
 Answer: C
 
-Make 5 questions. Topic: ${topic}`
+Make exactly 5 questions.
+Topic: ${topic}`
           }
-        ],
+        ]
       },
       {
         headers: {
           Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+          "Content-Type": "application/json"
+        }
       }
     );
 
     res.json({ quiz: response.data.choices[0].message.content });
+
   } catch (err) {
     console.error(err.response?.data || err.message);
     res.status(500).json({
-      quiz: "⚠️ Error generating quiz.",
+      quiz: "⚠️ Error generating quiz."
     });
   }
 });
 
-app.listen(5000, () => console.log("✅ Backend running with memory system"));
 
+// ====================== START SERVER ======================
+app.listen(5000, () =>
+  console.log("✅ Backend running with full memory system")
+);
